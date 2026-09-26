@@ -1,0 +1,794 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Zona — Mudas</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1C1B19">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Zona">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="icon" href="icon-192.png">
+<style>
+  :root{
+    --bg:#1C1B19; --card:#242220; --card2:#2b2925; --line:#3a3730;
+    --ink:#EDE8DE; --ink-dim:#9C958A; --amber:#E8A33D; --amber-dim:#7a5a26;
+    --danger:#c9614a; --ok:#7a9e6b;
+    box-sizing:border-box;
+    padding-top:env(safe-area-inset-top,0px);
+    padding-bottom:env(safe-area-inset-bottom,0px);
+  }
+  *{box-sizing:border-box;}
+  html{height:100%; scroll-padding-top:env(safe-area-inset-top,0px);}
+  body{
+    height:100%; margin:0; background:var(--bg); color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .mono{font-family:"SF Mono","SFMono-Regular",Menlo,Consolas,monospace;}
+  header{
+    position:sticky; top:0; z-index:5;
+    padding:calc(14px + env(safe-area-inset-top,0px)) 16px 12px;
+    background:linear-gradient(180deg,var(--bg) 80%,transparent);
+    border-bottom:1px solid var(--line);
+  }
+  header .row{display:flex; align-items:center; gap:10px;}
+  .zonebtn{
+    flex:1; display:flex; align-items:center; gap:8px; text-align:left;
+    background:transparent; border:none; color:var(--ink);
+    font-size:20px; font-weight:700; padding:2px 0;
+  }
+  .zonebtn .caret{color:var(--ink-dim); font-size:13px; font-weight:400;}
+  .clock{color:var(--amber); font-size:14px;}
+
+  .zonepanel{
+    margin-top:10px; background:var(--card); border:1px solid var(--line);
+    border-radius:8px; overflow:hidden;
+  }
+  .zrow{
+    display:flex; align-items:center; gap:8px; padding:11px 12px;
+    border-bottom:1px solid var(--line);
+  }
+  .zrow.active{background:var(--card2);}
+  .zrow .zdot{
+    width:8px; height:8px; border-radius:50%; flex-shrink:0; background:var(--line);
+  }
+  .zrow.active .zdot{background:var(--amber);}
+  .zrow input.zname{
+    flex:1; background:transparent; border:none; color:var(--ink); font-size:15px;
+    padding:4px 2px; outline:none; border-bottom:1px solid transparent; min-width:0;
+  }
+  .zrow input.zname:focus{border-bottom:1px solid var(--amber);}
+  .zrow .zcount{color:var(--ink-dim); font-size:12px; flex-shrink:0;}
+  .zrow .zdel{
+    flex-shrink:0; background:none; border:none; color:var(--ink-dim); font-size:16px; padding:2px 4px;
+  }
+  .zrow .zdel:active{color:var(--danger);}
+  .znew{
+    display:flex; align-items:center; gap:8px; padding:11px 12px;
+  }
+  .znew input{
+    flex:1; background:var(--card2); border:1px solid var(--line); color:var(--ink);
+    border-radius:5px; padding:8px 10px; font-size:14px; outline:none; min-width:0;
+  }
+  .znew input:focus{border-color:var(--amber);}
+  .znew button{
+    flex-shrink:0; background:var(--amber); color:#211a0c; border:none; font-weight:700;
+    border-radius:5px; padding:8px 14px; font-size:14px;
+  }
+  main{padding:10px 12px 100px; max-width:520px; margin:0 auto;}
+
+  .card{
+    background:var(--card); border:1px solid var(--line); border-radius:6px;
+    margin-bottom:10px; overflow:hidden;
+  }
+  .card-head{
+    display:flex; align-items:center; gap:8px;
+    padding:10px 12px; border-bottom:1px solid var(--line); background:var(--card2);
+  }
+  .card-head input.num{
+    background:transparent; border:none; color:var(--amber); outline:none;
+    font-size:22px; font-weight:700; width:76px;
+  }
+  .card-head .lbl{color:var(--ink-dim); font-size:12px; letter-spacing:.02em;}
+  .rm{
+    margin-left:auto; background:none; border:none; color:var(--ink-dim);
+    font-size:18px; padding:4px 6px; cursor:pointer;
+  }
+  .rm:active{color:var(--danger);}
+
+  .field{
+    display:flex; align-items:center; gap:10px; padding:9px 12px;
+    border-top:1px solid var(--line);
+  }
+  .field .flabel{width:64px; color:var(--ink-dim); font-size:13px; flex-shrink:0;}
+  .field input.val{
+    flex:1; background:transparent; border:none; color:var(--ink);
+    font-size:19px; outline:none; padding:4px 2px; min-width:0;
+    border-bottom:1px solid transparent;
+  }
+  .field input.val:focus{border-bottom:1px solid var(--amber);}
+  .calcbtn{
+    background:none; border:1px solid var(--amber-dim); color:var(--amber);
+    border-radius:5px; font-size:12px; padding:6px 9px; flex-shrink:0;
+  }
+  .calcbtn:active{background:var(--amber-dim);}
+  .fitabtns{display:flex; gap:6px; flex-shrink:0;}
+  .fitabtns button{
+    border:1px solid var(--line); background:none; color:var(--ink-dim);
+    border-radius:5px; padding:6px 10px; font-size:13px;
+  }
+  .fitabtns button.on{border-color:var(--amber); color:var(--amber);}
+
+  .calcbox{
+    display:none; padding:10px 12px; border-top:1px dashed var(--line);
+    background:#201f1c;
+  }
+  .calcbox.open{display:block;}
+  .calcbox .crow{display:flex; align-items:center; gap:8px; margin-bottom:8px;}
+  .calcbox label{width:76px; color:var(--ink-dim); font-size:12px;}
+  .calcbox input{
+    flex:1; background:var(--card); border:1px solid var(--line); color:var(--ink);
+    border-radius:5px; padding:8px; font-size:17px; outline:none;
+  }
+  .calcbox input:focus{border-color:var(--amber);}
+  .calcbox .actions{display:flex; gap:8px; margin-top:2px;}
+  .calcbox .actions button{
+    flex:1; border-radius:5px; padding:9px; font-size:14px; border:none;
+  }
+  .calcbox .btn-now{background:var(--card2); color:var(--ink-dim); border:1px solid var(--line);}
+  .calcbox .btn-go{background:var(--amber); color:#211a0c; font-weight:700;}
+
+  .steplabel{
+    color:var(--amber); font-size:12px; font-weight:600; letter-spacing:.01em;
+    margin-top:2px; margin-bottom:8px;
+  }
+  .steplabel:not(:first-child){
+    margin-top:16px; padding-top:14px; border-top:1px dashed var(--line);
+  }
+  .mrow{display:flex; align-items:center; gap:8px; margin-bottom:8px;}
+  .mrow label{width:auto; flex:1; color:var(--ink-dim); font-size:13px;}
+  .mrow input{
+    width:96px; flex:0 0 auto; background:var(--card); border:1px solid var(--line); color:var(--ink);
+    border-radius:5px; padding:8px; font-size:16px; outline:none; text-align:right;
+  }
+  .mrow input:focus{border-color:var(--amber);}
+  .toggle{
+    display:flex; align-items:center; justify-content:space-between; gap:8px;
+    margin-top:10px; padding:8px 10px; background:var(--card); border:1px solid var(--line); border-radius:5px;
+  }
+  .toggle span{font-size:12.5px; color:var(--ink-dim); line-height:1.3;}
+  .toggle button.sw{
+    flex-shrink:0; width:42px; height:24px; border-radius:99px; border:1px solid var(--line);
+    background:var(--card2); position:relative;
+  }
+  .toggle button.sw:after{
+    content:""; position:absolute; top:2px; left:2px; width:18px; height:18px; border-radius:50%;
+    background:var(--ink-dim); transition:transform .15s ease, background .15s ease;
+  }
+  .toggle button.sw.on{border-color:var(--amber);}
+  .toggle button.sw.on:after{transform:translateX(18px); background:var(--amber);}
+  .mresult{
+    margin-top:10px; padding:10px; border-radius:5px; background:var(--card2);
+    text-align:center;
+  }
+  .mresult .big{font-size:24px; font-weight:700; color:var(--amber);}
+  .mresult .cap{font-size:11px; color:var(--ink-dim); margin-top:2px;}
+  .mresult.bad .big{color:var(--danger); font-size:14px; font-weight:600;}
+
+  .estpill{
+    flex-shrink:0; border:1px solid var(--line); background:none; color:var(--ink-dim);
+    border-radius:99px; font-size:11px; padding:3px 8px; line-height:1.4;
+  }
+  .estpill.on{border-color:var(--amber); color:var(--amber); background:rgba(232,163,61,.1);}
+  .tilde{color:var(--amber); margin-right:2px;}
+
+  .addcard{
+    width:100%; padding:14px; background:none; border:1px dashed var(--line);
+    color:var(--ink-dim); border-radius:6px; font-size:15px;
+  }
+  .addcard:active{border-color:var(--amber); color:var(--amber);}
+
+  footer{
+    position:fixed; left:0; right:0; bottom:0;
+    padding:10px 12px calc(10px + env(safe-area-inset-bottom,0px));
+    background:linear-gradient(0deg,var(--bg) 70%,transparent);
+  }
+  footer .bar{
+    max-width:520px; margin:0 auto; display:flex; gap:10px;
+  }
+  footer button{
+    flex:1; padding:11px; border-radius:6px; font-size:14px; border:1px solid var(--line);
+    background:var(--card); color:var(--ink-dim);
+  }
+  footer button.warn{color:var(--danger); border-color:#4a2f27;}
+
+  .subrow{display:flex; align-items:center; gap:10px; margin-top:8px;}
+  .turno{color:var(--ink-dim); font-size:12px;}
+  .viewToggle{display:flex; gap:6px; flex:1;}
+  .viewToggle button{
+    flex:1; padding:7px; border-radius:6px; border:1px solid var(--line);
+    background:var(--card2); color:var(--ink-dim); font-size:13px;
+  }
+  .viewToggle button.active{border-color:var(--amber); color:var(--amber);}
+
+  .thead{display:grid; grid-template-columns:52px 1fr 1fr 50px; padding:0 4px 6px; color:var(--ink-dim); font-size:11px; letter-spacing:.03em;}
+  .thead span:first-child{text-align:center;}
+  .thead span:not(:first-child){text-align:center;}
+  .tbl{display:flex; flex-direction:column; gap:6px;}
+  .trow{
+    display:grid; grid-template-columns:52px 1fr 1fr 50px; align-items:stretch;
+    background:var(--card); border:1px solid var(--line); border-left:4px solid var(--line);
+    border-radius:6px; overflow:hidden;
+  }
+  .trow .tnum{display:flex; align-items:center; justify-content:center; font-weight:700; color:var(--ink);}
+  .trow .tcell{
+    padding:12px 4px; text-align:center; font-size:17px; border-left:1px solid var(--line);
+  }
+  .trow .tcell.done{opacity:.38; text-decoration:line-through;}
+  .trow .tcell.fita{font-size:15px;}
+  .trow .tcell:active{background:rgba(255,255,255,.06);}
+  .empty-note{color:var(--ink-dim); font-size:13px; text-align:center; padding:24px 10px;}
+
+  @media (prefers-color-scheme: light){
+    :root:not([data-theme="dark"]){
+      --bg:#F3F1EC; --card:#ffffff; --card2:#EDEAE2; --line:#DAD5C9;
+      --ink:#221F1A; --ink-dim:#7A7568; --amber:#B5701F; --amber-dim:#E7D4AC;
+      --danger:#B14A34;
+    }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="row">
+    <button id="zoneBtn" class="mono zonebtn"><span id="zoneName"></span> <span class="caret">▾</span></button>
+    <span class="clock mono" id="clock">--:--</span>
+  </div>
+  <div id="zonePanel" class="zonepanel" style="display:none;"></div>
+  <div class="subrow">
+    <span class="turno mono" id="turno">Turno —</span>
+    <div class="viewToggle">
+      <button id="viewCardsBtn">Cartões</button>
+      <button id="viewTableBtn">Tabela</button>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div id="cards"></div>
+  <div id="tableView" style="display:none;"></div>
+</main>
+
+<footer>
+  <div class="bar">
+    <button id="addBtn">+ Máquina</button>
+    <button id="clearBtn" class="warn">Limpar campos</button>
+  </div>
+</footer>
+
+<script>
+const KEY = "coficab_zone_v2";
+const OLD_KEY = "coficab_zone_v1";
+let state = load();
+
+function blankMachine(num){
+  return {num:num||"",carretos:"",bobine:"",fita:"",doneC:false,doneB:false,doneF:false,estC:false};
+}
+
+function load(){
+  try{
+    const raw = localStorage.getItem(KEY);
+    if(raw){
+      const s = JSON.parse(raw);
+      if(s.zones && s.currentZone) return s;
+    }
+  }catch(e){}
+
+  // migrar de uma versão anterior de zona única, se existir
+  try{
+    const old = localStorage.getItem(OLD_KEY);
+    if(old){
+      const o = JSON.parse(old);
+      const name = o.zone || "Zona 4";
+      return {
+        currentZone: name,
+        zones: { [name]: { machines: o.machines || [] } },
+        view: o.view || "cards",
+        margin: o.margin || ""
+      };
+    }
+  }catch(e){}
+
+  return {
+    currentZone: "Zona 4",
+    zones: { "Zona 4": { machines: ["52","105","106","107","108","109","110"].map(blankMachine) } },
+    view: "cards",
+    margin: ""
+  };
+}
+function save(){
+  try{ localStorage.setItem(KEY, JSON.stringify(state)); }catch(e){ console.error("save failed",e); }
+}
+function curMachines(){
+  if(!state.zones[state.currentZone]) state.zones[state.currentZone] = { machines: [] };
+  return state.zones[state.currentZone].machines;
+}
+function zoneNames(){ return Object.keys(state.zones); }
+function pad(n){ return n.toString().padStart(2,"0"); }
+function nowHM(){
+  const d=new Date();
+  return pad(d.getHours())+":"+pad(d.getMinutes());
+}
+function parseHM(s){
+  const m = (s||"").trim().match(/^(\d{1,3}):(\d{1,2})$/);
+  if(!m) return null;
+  return {h:parseInt(m[1],10), m:parseInt(m[2],10)};
+}
+function addTimes(baseStr, durStr, marginMin){
+  const b = parseHM(baseStr), d = parseHM(durStr);
+  if(!b || !d) return null;
+  const margin = Number.isFinite(marginMin) ? marginMin : 0;
+  let total = (b.h*60+b.m) + (d.h*60+d.m) - margin;
+  total = ((total % 1440) + 1440) % 1440;
+  return pad(Math.floor(total/60))+":"+pad(total%60);
+}
+
+const VIDA_CARRETOS = 4090;
+const VIDA_BOBINE = 10000;
+// valor a meter no visor da máquina para a muda de carretos
+function metrosCarretos(marcados, bobineTrocada){
+  if(!Number.isFinite(marcados)) return null;
+  if(bobineTrocada){
+    const alvo = marcados - (VIDA_BOBINE - VIDA_CARRETOS); // marcados - 5910
+    return alvo > 0 ? Math.round(alvo) : null;
+  }
+  return Math.round(marcados + VIDA_CARRETOS);
+}
+
+function attachTimeMask(input){
+  input.addEventListener("input", ()=>{
+    let digits = input.value.replace(/\D/g,"").slice(0,4);
+    input.value = digits.length > 2 ? digits.slice(0,2)+":"+digits.slice(2) : digits;
+  });
+}
+
+// fecha o teclado sozinho pouco depois de parares de escrever (não depende do nº de dígitos)
+function attachAutoDismiss(input, delay){
+  let t = null;
+  input.addEventListener("input", ()=>{
+    clearTimeout(t);
+    t = setTimeout(()=>{ input.blur(); }, delay || 650);
+  });
+  input.addEventListener("keydown", (e)=>{
+    if(e.key==="Enter"){ clearTimeout(t); input.blur(); }
+  });
+}
+
+function turnoLabel(){
+  const h = new Date().getHours();
+  if(h<8) return "Turno 1 · 00h–08h";
+  if(h<16) return "Turno 2 · 08h–16h";
+  return "Turno 3 · 16h–24h";
+}
+function tickClock(){
+  document.getElementById("clock").textContent = nowHM();
+  document.getElementById("turno").textContent = turnoLabel();
+  // mantém a ordem e as cores da Tabela em sintonia com a hora atual, mesmo sem tocar em nada
+  if(state.view==="table") renderTable();
+}
+setInterval(tickClock, 1000*15);
+tickClock();
+
+const zoneBtn = document.getElementById("zoneBtn");
+const zoneNameEl = document.getElementById("zoneName");
+const zonePanel = document.getElementById("zonePanel");
+let zonePanelOpen = false;
+
+function refreshZoneHeader(){
+  zoneNameEl.textContent = state.currentZone;
+}
+
+function toggleZonePanel(open){
+  zonePanelOpen = open != null ? open : !zonePanelOpen;
+  zonePanel.style.display = zonePanelOpen ? "" : "none";
+  if(zonePanelOpen) renderZonePanel();
+}
+zoneBtn.onclick = ()=>toggleZonePanel();
+
+function renderZonePanel(){
+  zonePanel.innerHTML = "";
+
+  zoneNames().forEach(name=>{
+    const row = document.createElement("div");
+    row.className = "zrow" + (name===state.currentZone ? " active" : "");
+
+    const dot = document.createElement("span"); dot.className="zdot";
+
+    const nameIn = document.createElement("input");
+    nameIn.className = "zname mono"; nameIn.value = name;
+    nameIn.addEventListener("click", (e)=>e.stopPropagation());
+    nameIn.addEventListener("change", ()=>{
+      const newName = nameIn.value.trim();
+      if(!newName || newName===name){ nameIn.value = name; return; }
+      if(state.zones[newName]){
+        alert("Já existe uma zona com esse nome.");
+        nameIn.value = name;
+        return;
+      }
+      state.zones[newName] = state.zones[name];
+      delete state.zones[name];
+      if(state.currentZone===name) state.currentZone = newName;
+      save(); refreshZoneHeader(); renderZonePanel(); renderAll();
+    });
+
+    const count = document.createElement("span"); count.className="zcount mono";
+    const n = (state.zones[name].machines||[]).filter(m=>m.num).length;
+    count.textContent = n + (n===1 ? " máq." : " máq.");
+
+    const del = document.createElement("button"); del.className="zdel"; del.textContent="✕";
+    del.title = "Apagar zona";
+    del.onclick = (e)=>{
+      e.stopPropagation();
+      if(zoneNames().length<=1){ alert("Tens de ter pelo menos uma zona guardada."); return; }
+      if(confirm(`Apagar "${name}" e todas as suas máquinas?`)){
+        delete state.zones[name];
+        if(state.currentZone===name) state.currentZone = zoneNames()[0];
+        save(); refreshZoneHeader(); renderZonePanel(); renderAll();
+      }
+    };
+
+    row.append(dot,nameIn,count,del);
+    row.onclick = ()=>{
+      if(state.currentZone!==name){
+        state.currentZone = name;
+        save(); refreshZoneHeader(); renderZonePanel(); renderAll();
+      }
+    };
+    zonePanel.appendChild(row);
+  });
+
+  const newRow = document.createElement("div"); newRow.className="znew";
+  const newIn = document.createElement("input"); newIn.placeholder="Nome da nova zona (ex: Zona 2)";
+  const newBtn = document.createElement("button"); newBtn.textContent="+ Criar";
+  function createZone(){
+    const name = newIn.value.trim();
+    if(!name) return;
+    if(state.zones[name]){ alert("Já existe uma zona com esse nome."); return; }
+    state.zones[name] = { machines: [] };
+    state.currentZone = name;
+    save(); refreshZoneHeader(); renderZonePanel(); renderAll();
+    newIn.value = "";
+  }
+  newBtn.onclick = createZone;
+  newIn.addEventListener("keydown", (e)=>{ if(e.key==="Enter") createZone(); });
+  newRow.append(newIn,newBtn);
+  zonePanel.appendChild(newRow);
+}
+
+refreshZoneHeader();
+
+// minutes from now until a HH:MM time (wraps to next day), or null if invalid
+function minutesUntil(str){
+  const t = parseHM(str);
+  if(!t) return null;
+  const now = new Date();
+  const nowMin = now.getHours()*60 + now.getMinutes();
+  let diff = (t.h*60+t.m) - nowMin;
+  diff = ((diff % 1440) + 1440) % 1440;
+  return diff;
+}
+// red (soon) -> green (far), capped at 4h
+function urgencyColor(mins){
+  if(mins==null) return null;
+  const t = Math.max(0, Math.min(1, mins/240));
+  return `hsl(${Math.round(t*120)},65%,50%)`;
+}
+
+function renderAll(){
+  refreshZoneHeader();
+  renderCards();
+  renderTable();
+  document.getElementById("cards").style.display = state.view==="cards" ? "" : "none";
+  document.getElementById("tableView").style.display = state.view==="table" ? "" : "none";
+  document.getElementById("viewCardsBtn").classList.toggle("active", state.view==="cards");
+  document.getElementById("viewTableBtn").classList.toggle("active", state.view==="table");
+}
+document.getElementById("viewCardsBtn").onclick = ()=>{ state.view="cards"; save(); renderAll(); };
+document.getElementById("viewTableBtn").onclick = ()=>{ state.view="table"; save(); renderAll(); };
+
+function renderCards(){
+  const wrap = document.getElementById("cards");
+  wrap.innerHTML = "";
+  curMachines().forEach((m,i)=>{
+    wrap.appendChild(buildCard(m,i));
+  });
+  const add = document.createElement("button");
+  add.className = "addcard";
+  add.textContent = "+ Adicionar máquina à zona";
+  add.onclick = ()=>{
+    curMachines().push(blankMachine());
+    save(); renderAll();
+    const inputs = document.querySelectorAll(".card-head input.num");
+    inputs[inputs.length-1].focus();
+  };
+  wrap.appendChild(add);
+}
+
+function renderTable(){
+  const wrap = document.getElementById("tableView");
+  wrap.innerHTML = "";
+
+  const withNum = curMachines().filter(m=>m.num);
+  if(withNum.length===0){
+    wrap.innerHTML = '<div class="empty-note">Sem máquinas ainda. Adiciona-as na vista Cartões.</div>';
+    return;
+  }
+
+  const thead = document.createElement("div");
+  thead.className = "thead";
+  thead.innerHTML = "<span>Máq.</span><span>Carretos</span><span>Bobine</span><span>Fita</span>";
+  wrap.appendChild(thead);
+
+  const rows = withNum.map(m=>{
+    const cMin = m.doneC ? null : minutesUntil(m.carretos);
+    const bMin = m.doneB ? null : minutesUntil(m.bobine);
+    const soonest = [cMin,bMin].filter(v=>v!=null);
+    const rank = soonest.length ? Math.min(...soonest) : Infinity;
+    return {m, cMin, bMin, rank};
+  }).sort((a,b)=>a.rank-b.rank);
+
+  const tbl = document.createElement("div");
+  tbl.className = "tbl";
+
+  rows.forEach(({m,cMin,bMin,rank})=>{
+    const row = document.createElement("div");
+    row.className = "trow";
+    row.style.borderLeftColor = rank===Infinity ? "var(--line)" : urgencyColor(rank);
+
+    const num = document.createElement("div");
+    num.className = "tnum mono"; num.textContent = m.num;
+
+    const cCell = makeTableCell(m.carretos, m.doneC, cMin, m.estC);
+    cCell.onclick = ()=>{ m.doneC = !m.doneC; save(); renderTable(); };
+
+    const bCell = makeTableCell(m.bobine, m.doneB, bMin, false);
+    bCell.onclick = ()=>{ m.doneB = !m.doneB; save(); renderTable(); };
+
+    const fCell = document.createElement("div");
+    fCell.className = "tcell fita mono" + (m.doneF ? " done" : "");
+    fCell.textContent = m.fita || "—";
+    if(!m.doneF && m.fita==="?") fCell.style.color = "var(--amber)";
+    fCell.onclick = ()=>{ m.doneF = !m.doneF; save(); renderTable(); };
+
+    row.append(num,cCell,bCell,fCell);
+    tbl.appendChild(row);
+  });
+
+  wrap.appendChild(tbl);
+}
+
+function makeTableCell(val, done, mins, isEst){
+  const cell = document.createElement("div");
+  cell.className = "tcell mono" + (done ? " done" : "");
+  if(val && isEst){
+    const tilde = document.createElement("span");
+    tilde.className = "tilde"; tilde.textContent = "≈";
+    cell.appendChild(tilde);
+    cell.appendChild(document.createTextNode(val));
+    cell.title = "Estimativa (bobine trocada antes da muda dos carretos)";
+  } else {
+    cell.textContent = val || "—";
+  }
+  if(!done && mins!=null){
+    cell.style.color = urgencyColor(mins);
+    cell.style.fontWeight = "700";
+  }
+  return cell;
+}
+
+function buildCard(m,i){
+  const card = document.createElement("div");
+  card.className = "card";
+
+  // head
+  const head = document.createElement("div");
+  head.className = "card-head";
+  const numIn = document.createElement("input");
+  numIn.className = "num mono"; numIn.value = m.num; numIn.placeholder = "nº";
+  numIn.inputMode = "numeric";
+  numIn.oninput = ()=>{ curMachines()[i].num = numIn.value; save(); };
+  const lbl = document.createElement("span");
+  lbl.className = "lbl"; lbl.textContent = "MÁQUINA";
+  const rm = document.createElement("button");
+  rm.className = "rm"; rm.textContent = "✕";
+  rm.onclick = ()=>{ curMachines().splice(i,1); save(); renderAll(); };
+  head.append(numIn, lbl, rm);
+  card.appendChild(head);
+
+  card.appendChild(timeField("Carretos","carretos",m,i));
+  card.appendChild(timeField("Bobine","bobine",m,i));
+  card.appendChild(fitaField(m,i));
+
+  return card;
+}
+
+function timeField(label,key,m,i){
+  const wrap = document.createElement("div"); wrap.className="fieldwrap";
+  const isCarretos = key==="carretos";
+  const doneKey = key==="carretos" ? "doneC" : "doneB";
+
+  const f = document.createElement("div"); f.className="field";
+  const l = document.createElement("span"); l.className="flabel"; l.textContent=label;
+  const v = document.createElement("input");
+  v.className="val mono"; v.value = m[key]; v.placeholder="--:--"; v.inputMode="numeric";
+  v.oninput = ()=>{ curMachines()[i][key]=v.value; curMachines()[i][doneKey]=false; save(); };
+  attachTimeMask(v);
+
+  let estPill = null;
+  if(isCarretos){
+    estPill = document.createElement("button");
+    estPill.className = "estpill" + (m.estC ? " on" : "");
+    estPill.textContent = "≈ est.";
+    estPill.title = "Marca esta hora como estimativa (bobine foi trocada antes da muda dos carretos)";
+    estPill.onclick = ()=>{ curMachines()[i].estC = !curMachines()[i].estC; save(); renderAll(); };
+  }
+
+  const cbtn = document.createElement("button");
+  cbtn.className="calcbtn"; cbtn.textContent="calc";
+
+  f.append(l, v);
+  if(estPill) f.append(estPill);
+  f.append(cbtn);
+  wrap.appendChild(f);
+
+  // --- painel único: 1. metros -> valor no visor (só carretos), depois 2. duração -> hora final ---
+  const box = document.createElement("div"); box.className="calcbox";
+
+  let getBobineTrocada = ()=>false;
+  if(isCarretos){
+    const step1 = document.createElement("div"); step1.className="steplabel";
+    step1.textContent = "1. Metros → valor a meter no visor";
+    box.appendChild(step1);
+
+    const mr1 = document.createElement("div"); mr1.className="mrow";
+    const ml1 = document.createElement("label"); ml1.textContent = "Carretos mudados aos (metros)";
+    const min1 = document.createElement("input"); min1.className="mono"; min1.inputMode="numeric"; min1.placeholder="0";
+    mr1.append(ml1,min1);
+    box.appendChild(mr1);
+
+    const tg = document.createElement("div"); tg.className="toggle";
+    const tgSpan = document.createElement("span"); tgSpan.textContent = "Bobine foi trocada antes da muda dos carretos";
+    const tgBtn = document.createElement("button"); tgBtn.className="sw";
+    let trocada = false;
+    tgBtn.onclick = ()=>{ trocada = !trocada; tgBtn.classList.toggle("on", trocada); computeMetros(); };
+    tg.append(tgSpan,tgBtn);
+    box.appendChild(tg);
+    getBobineTrocada = ()=>trocada;
+
+    const mres = document.createElement("div"); mres.className="mresult"; mres.style.display="none";
+    box.appendChild(mres);
+
+    function computeMetros(){
+      const marcados = parseFloat((min1.value||"").replace(",","."));
+      if(!Number.isFinite(marcados)){ mres.style.display="none"; return; }
+      const alvo = metrosCarretos(marcados, trocada);
+      mres.style.display="block";
+      if(alvo==null){
+        mres.className = "mresult bad";
+        mres.innerHTML = `<div class="big">Não dá para estimar — esta bobine não parece ter chegado aos ${VIDA_BOBINE}m. Aponta a que metros ela saiu e repete os cálculos manualmente com a tua mentora.</div>`;
+      } else {
+        mres.className = "mresult";
+        mres.innerHTML = `<div class="big">${alvo}</div><div class="cap">meter este valor no visor da máquina${trocada ? " · resultado é uma estimativa" : ""}</div>`;
+      }
+    }
+    min1.addEventListener("input", computeMetros);
+    attachAutoDismiss(min1);
+
+    const step2 = document.createElement("div"); step2.className="steplabel";
+    step2.textContent = "2. Duração do visor → hora final";
+    box.appendChild(step2);
+  }
+
+  const r1 = document.createElement("div"); r1.className="crow";
+  const l1 = document.createElement("label"); l1.textContent="Hora base";
+  const in1 = document.createElement("input"); in1.className="mono"; in1.placeholder="16:00"; in1.value=nowHM(); in1.inputMode="numeric";
+  attachTimeMask(in1);
+  const nowBtn = document.createElement("button"); nowBtn.className="btn-now"; nowBtn.textContent="agora"; nowBtn.style.flex="0 0 60px"; nowBtn.style.padding="8px 4px"; nowBtn.style.fontSize="12px";
+  nowBtn.onclick=()=>{ in1.value = nowHM(); };
+  r1.append(l1,in1,nowBtn);
+
+  const r2 = document.createElement("div"); r2.className="crow";
+  const l2 = document.createElement("label"); l2.textContent="+ Duração";
+  const in2 = document.createElement("input"); in2.className="mono"; in2.placeholder="04:12"; in2.inputMode="numeric";
+  attachTimeMask(in2);
+  r2.append(l2,in2);
+
+  const r3 = document.createElement("div"); r3.className="crow";
+  const l3 = document.createElement("label"); l3.textContent="− Margem (min)";
+  const in3 = document.createElement("input"); in3.className="mono"; in3.placeholder="0"; in3.inputMode="numeric";
+  in3.value = state.margin || "";
+  r3.append(l3,in3);
+
+  const act = document.createElement("div"); act.className="actions";
+  const goBtn = document.createElement("button"); goBtn.className="btn-go"; goBtn.textContent="Calcular e preencher";
+  goBtn.onclick = ()=>{
+    const marginMin = parseInt(in3.value,10);
+    const res = addTimes(in1.value, in2.value, Number.isFinite(marginMin) ? marginMin : 0);
+    if(res){
+      v.value = res; curMachines()[i][key]=res; curMachines()[i][doneKey]=false;
+      if(isCarretos) curMachines()[i].estC = getBobineTrocada();
+      state.margin = in3.value;
+      save();
+      box.classList.remove("open");
+      renderAll();
+    } else {
+      goBtn.textContent = "Formato inválido (ex: 04:12)";
+      setTimeout(()=>{ goBtn.textContent = "Calcular e preencher"; },1600);
+    }
+  };
+  act.appendChild(goBtn);
+
+  box.append(r1,r2,r3,act);
+  wrap.appendChild(box);
+
+  cbtn.onclick = ()=>{ box.classList.toggle("open"); if(box.classList.contains("open")) in2.focus(); };
+
+  return wrap;
+}
+
+function fitaField(m,i){
+  const f = document.createElement("div"); f.className="field";
+  const l = document.createElement("span"); l.className="flabel"; l.textContent="Fita";
+  const v = document.createElement("input");
+  v.className="val mono"; v.value=m.fita; v.placeholder="—"; v.style.maxWidth="60px";
+  v.oninput = ()=>{ curMachines()[i].fita=v.value; curMachines()[i].doneF=false; save(); };
+  const btns = document.createElement("div"); btns.className="fitabtns";
+  const b1 = document.createElement("button"); b1.textContent="1";
+  const b2 = document.createElement("button"); b2.textContent="—";
+  const b3 = document.createElement("button"); b3.textContent="?"; b3.title="Talvez — ainda não tenho a certeza";
+  function mark(){
+    b1.classList.toggle("on", v.value==="1");
+    b2.classList.toggle("on", v.value==="—");
+    b3.classList.toggle("on", v.value==="?");
+  }
+  function setFita(val){ v.value=val; curMachines()[i].fita=val; curMachines()[i].doneF=false; save(); mark(); }
+  b1.onclick=()=>setFita("1");
+  b2.onclick=()=>setFita("—");
+  b3.onclick=()=>setFita("?");
+  mark();
+  btns.append(b1,b2,b3);
+  f.append(l,v,btns);
+  return f;
+}
+
+document.getElementById("addBtn").onclick = ()=>{
+  curMachines().push(blankMachine());
+  save(); renderAll();
+};
+document.getElementById("clearBtn").onclick = ()=>{
+  if(confirm("Limpar todos os campos desta zona? Os números das máquinas mantêm-se.")){
+    curMachines().forEach(m=>{ m.carretos=""; m.bobine=""; m.fita=""; m.doneC=false; m.doneB=false; m.doneF=false; m.estC=false; });
+    save(); renderAll();
+  }
+};
+
+document.addEventListener("click", (e)=>{
+  if(zonePanelOpen && !zonePanel.contains(e.target) && e.target!==zoneBtn && !zoneBtn.contains(e.target)){
+    toggleZonePanel(false);
+  }
+});
+
+renderAll();
+
+if("serviceWorker" in navigator){
+  window.addEventListener("load", ()=>{
+    navigator.serviceWorker.register("sw.js").catch(()=>{});
+  });
+}
+</script>
+</body>
+</html>
