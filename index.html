@@ -156,6 +156,13 @@
     border-radius:5px; padding:8px; font-size:16px; outline:none; text-align:right;
   }
   .mrow input:focus{border-color:var(--amber);}
+  .formularow{display:flex; align-items:center; gap:8px; margin-bottom:8px; flex-wrap:wrap;}
+  .formularow .fop{color:var(--ink-dim); font-size:15px; flex-shrink:0;}
+  .formularow input{
+    width:88px; flex:0 0 auto; background:var(--card); border:1px solid var(--line); color:var(--ink);
+    border-radius:5px; padding:8px; font-size:16px; outline:none; text-align:center;
+  }
+  .formularow input:focus{border-color:var(--amber);}
   .toggle{
     display:flex; align-items:center; justify-content:space-between; gap:8px;
     margin-top:10px; padding:8px 10px; background:var(--card); border:1px solid var(--line); border-radius:5px;
@@ -185,6 +192,21 @@
   }
   .estpill.on{border-color:var(--amber); color:var(--amber); background:rgba(232,163,61,.1);}
   .tilde{color:var(--amber); margin-right:2px;}
+  .fieldhint{color:var(--ink-dim); font-size:11.5px; line-height:1.35; margin:-4px 0 10px;}
+
+  .modal-overlay{
+    position:fixed; inset:0; background:rgba(0,0,0,.55); z-index:50;
+    display:flex; align-items:center; justify-content:center; padding:20px;
+  }
+  .modal-box{
+    background:var(--card); border:1px solid var(--line); border-radius:10px;
+    padding:18px; max-width:340px; width:100%;
+  }
+  .modal-msg{color:var(--ink); font-size:15px; line-height:1.4; margin-bottom:16px;}
+  .modal-actions{display:flex; gap:10px;}
+  .modal-btn{flex:1; padding:11px; border-radius:6px; font-size:14px; border:1px solid var(--line);}
+  .modal-cancel{background:var(--card2); color:var(--ink-dim);}
+  .modal-ok{background:var(--amber); color:#211a0c; font-weight:700; border:none;}
 
   .addcard{
     width:100%; padding:14px; background:none; border:1px dashed var(--line);
@@ -207,7 +229,23 @@
   footer button.warn{color:var(--danger); border-color:#4a2f27;}
 
   .subrow{display:flex; align-items:center; gap:10px; margin-top:8px;}
-  .turno{color:var(--ink-dim); font-size:12px;}
+  .turno{
+    color:var(--ink-dim); font-size:12px; background:none; border:none;
+    display:flex; align-items:center; gap:4px; padding:2px 0;
+  }
+  .turno .caret{font-size:10px;}
+  .turnopanel{
+    margin-top:8px; background:var(--card); border:1px solid var(--line);
+    border-radius:8px; overflow:hidden;
+  }
+  .turnopanel button{
+    display:block; width:100%; text-align:left; padding:11px 12px; font-size:14px;
+    background:none; border:none; border-bottom:1px solid var(--line); color:var(--ink);
+  }
+  .turnopanel button:last-child{border-bottom:none;}
+  .turnopanel button.active{background:var(--card2); color:var(--amber); font-weight:600;}
+  .turnopanel button .sub{display:block; font-size:11px; color:var(--ink-dim); font-weight:400; margin-top:1px;}
+  .turnopanel button.active .sub{color:var(--amber-dim);}
   .viewToggle{display:flex; gap:6px; flex:1;}
   .viewToggle button{
     flex:1; padding:7px; border-radius:6px; border:1px solid var(--line);
@@ -228,9 +266,18 @@
   .trow .tcell{
     padding:12px 4px; text-align:center; font-size:17px; border-left:1px solid var(--line);
   }
-  .trow .tcell.done{opacity:.38; text-decoration:line-through;}
+  .trow .tcell.done{opacity:.34; text-decoration:line-through; filter:grayscale(60%);}
+  .trow .tcell.done .checkmark{text-decoration:none; opacity:.9;}
   .trow .tcell.fita{font-size:15px;}
   .trow .tcell:active{background:rgba(255,255,255,.06);}
+  .tcell .chip{
+    display:inline-block; padding:4px 10px; border-radius:99px; font-weight:700;
+    border:1px solid transparent; line-height:1.3;
+  }
+  .tcell .chip.overdue{
+    border-width:1.5px; box-shadow:0 0 0 2px hsla(0,70%,50%,.12);
+  }
+  .warnmark{margin-right:2px;}
   .empty-note{color:var(--ink-dim); font-size:13px; text-align:center; padding:24px 10px;}
 
   @media (prefers-color-scheme: light){
@@ -250,12 +297,13 @@
   </div>
   <div id="zonePanel" class="zonepanel" style="display:none;"></div>
   <div class="subrow">
-    <span class="turno mono" id="turno">Turno —</span>
+    <button id="turnoBtn" class="turno mono"><span id="turnoLabelText">Turno —</span> <span class="caret">▾</span></button>
     <div class="viewToggle">
       <button id="viewCardsBtn">Cartões</button>
       <button id="viewTableBtn">Tabela</button>
     </div>
   </div>
+  <div id="turnoPanel" class="turnopanel" style="display:none;"></div>
 </header>
 
 <main>
@@ -275,16 +323,80 @@ const KEY = "coficab_zone_v2";
 const OLD_KEY = "coficab_zone_v1";
 let state = load();
 
+// pop-up próprio (alguns sítios onde a app corre bloqueiam os alert()/confirm() nativos do browser
+// sem avisar — os cliques pareciam não fazer nada. Isto funciona sempre, em qualquer sítio.)
+function showModal({message, confirmText, cancelText, onConfirm}){
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay";
+  const box = document.createElement("div");
+  box.className = "modal-box";
+  const p = document.createElement("div"); p.className = "modal-msg"; p.textContent = message;
+  box.appendChild(p);
+  const actions = document.createElement("div"); actions.className = "modal-actions";
+  function close(){ overlay.remove(); }
+  if(cancelText){
+    const cancelBtn = document.createElement("button");
+    cancelBtn.className = "modal-btn modal-cancel"; cancelBtn.textContent = cancelText;
+    cancelBtn.onclick = close;
+    actions.appendChild(cancelBtn);
+  }
+  const okBtn = document.createElement("button");
+  okBtn.className = "modal-btn modal-ok"; okBtn.textContent = confirmText || "OK";
+  okBtn.onclick = ()=>{ close(); if(onConfirm) onConfirm(); };
+  actions.appendChild(okBtn);
+  box.appendChild(actions);
+  overlay.appendChild(box);
+  overlay.onclick = (e)=>{ if(e.target===overlay) close(); };
+  document.body.appendChild(overlay);
+}
+function appAlert(message){ showModal({message, confirmText:"OK"}); }
+function appConfirm(message, onConfirm){ showModal({message, confirmText:"Confirmar", cancelText:"Cancelar", onConfirm}); }
+
 function blankMachine(num){
   return {num:num||"",carretos:"",bobine:"",fita:"",doneC:false,doneB:false,doneF:false,estC:false};
 }
+
+// zona de exemplo (só na primeira vez que a app abre com esta versão) — mostra a
+// tabela toda preenchida, com horas por fazer e já feitas, para te habituares às cores.
+// podes apagá-la (✕ na lista de zonas) sem que volte a aparecer.
+function seedTestZone(){
+  if(state._seededTest || state.zones["Teste"]) return;
+  state._seededTest = true;
+  const fitas = ["1","—","?"];
+  const now = new Date();
+  const nowMin = now.getHours()*60 + now.getMinutes();
+  function randTime(maxAheadMin){
+    const mins = (nowMin + 5 + Math.floor(Math.random()*maxAheadMin)) % 1440;
+    return pad(Math.floor(mins/60)) + ":" + pad(mins%60);
+  }
+  const machines = [];
+  for(let i=1;i<=8;i++){
+    const aheadCap = i<=6 ? 420 : 900; // a maioria dentro das próximas ~7h, 2 mais longe (fora do turno)
+    machines.push({
+      num: "T"+i,
+      carretos: randTime(aheadCap),
+      bobine: randTime(aheadCap),
+      fita: fitas[Math.floor(Math.random()*3)],
+      doneC: i<=2,
+      doneB: i===3,
+      doneF: i===2,
+      estC: i===5
+    });
+  }
+  state.zones["Teste"] = { machines };
+  save();
+}
+seedTestZone();
 
 function load(){
   try{
     const raw = localStorage.getItem(KEY);
     if(raw){
       const s = JSON.parse(raw);
-      if(s.zones && s.currentZone) return s;
+      if(s.zones && s.currentZone){
+        if(s.turnoOverride===undefined) s.turnoOverride = null;
+        return s;
+      }
     }
   }catch(e){}
 
@@ -298,7 +410,8 @@ function load(){
         currentZone: name,
         zones: { [name]: { machines: o.machines || [] } },
         view: o.view || "cards",
-        margin: o.margin || ""
+        margin: o.margin || "",
+        turnoOverride: null
       };
     }
   }catch(e){}
@@ -307,7 +420,8 @@ function load(){
     currentZone: "Zona 4",
     zones: { "Zona 4": { machines: ["52","105","106","107","108","109","110"].map(blankMachine) } },
     view: "cards",
-    margin: ""
+    margin: "",
+    turnoOverride: null
   };
 }
 function save(){
@@ -340,10 +454,11 @@ function addTimes(baseStr, durStr, marginMin){
 const VIDA_CARRETOS = 4090;
 const VIDA_BOBINE = 10000;
 // valor a meter no visor da máquina para a muda de carretos
-function metrosCarretos(marcados, bobineTrocada){
+function metrosCarretos(marcados, bobineTrocada, saidaBobineAntiga){
   if(!Number.isFinite(marcados)) return null;
   if(bobineTrocada){
-    const alvo = marcados - (VIDA_BOBINE - VIDA_CARRETOS); // marcados - 5910
+    const saida = Number.isFinite(saidaBobineAntiga) ? saidaBobineAntiga : VIDA_BOBINE;
+    const alvo = marcados + VIDA_CARRETOS - saida;
     return alvo > 0 ? Math.round(alvo) : null;
   }
   return Math.round(marcados + VIDA_CARRETOS);
@@ -368,15 +483,77 @@ function attachAutoDismiss(input, delay){
   });
 }
 
-function turnoLabel(){
-  const h = new Date().getHours();
-  if(h<8) return "Turno 1 · 00h–08h";
-  if(h<16) return "Turno 2 · 08h–16h";
-  return "Turno 3 · 16h–24h";
+// chegas ao trabalho uns minutos antes de o turno começar oficialmente — a app já
+// te considera nesse turno seguinte a partir desse momento (não só à hora certa)
+const TURNO_LOOKAHEAD_MIN = 30;
+// quanto tempo antes do fim do turno uma muda deixa de ser "tua" e passa a ser do turno seguinte
+const SHIFT_END_BUFFER_MIN = 15;
+const TURNO_LABELS = ["Turno 1 · 00h–08h", "Turno 2 · 08h–16h", "Turno 3 · 16h–24h"];
+const TURNO_END_HM = ["08:00", "16:00", "00:00"];
+const TURNO_START_MIN = [0, 480, 960]; // 00h, 08h, 16h em minutos desde a meia-noite
+
+function autoTurnoIndex(){
+  const now = new Date();
+  const nowMin = now.getHours()*60 + now.getMinutes();
+  const effective = (nowMin + TURNO_LOOKAHEAD_MIN) % 1440;
+  return Math.floor(effective/480) % 3;
 }
+// usa a escolha manual se houver uma; caso contrário deteta sozinho pela hora
+function turnoIndex(){
+  return state.turnoOverride!=null ? state.turnoOverride : autoTurnoIndex();
+}
+function turnoLabel(){
+  return TURNO_LABELS[turnoIndex()];
+}
+// diz se uma hora HH:MM cai dentro da janela do turno indicado (0=00-08h, 1=08-16h, 2=16-24h),
+// já descontando a margem do fim do turno. Isto é uma comparação direta de "hora do dia",
+// independente da hora real agora — por isso funciona bem quando o turno é escolhido manualmente
+// e não corresponde à hora atual.
+function isWithinTurnoWindow(hhmm, idx){
+  const t = parseHM(hhmm);
+  if(!t) return true; // sem valor válido -> não achamos "fora", quem decide é o resto do render
+  const mins = t.h*60 + t.m;
+  const start = TURNO_START_MIN[idx];
+  const end = start + 480 - SHIFT_END_BUFFER_MIN;
+  return mins >= start && mins < end;
+}
+
+const turnoBtn = document.getElementById("turnoBtn");
+const turnoLabelEl = document.getElementById("turnoLabelText");
+const turnoPanel = document.getElementById("turnoPanel");
+let turnoPanelOpen = false;
+
+function refreshTurnoHeader(){
+  turnoLabelEl.textContent = turnoLabel() + (state.turnoOverride!=null ? " · manual" : "");
+}
+
+function toggleTurnoPanel(open){
+  turnoPanelOpen = open != null ? open : !turnoPanelOpen;
+  turnoPanel.style.display = turnoPanelOpen ? "" : "none";
+  if(turnoPanelOpen) renderTurnoPanel();
+}
+turnoBtn.onclick = ()=>toggleTurnoPanel();
+
+function renderTurnoPanel(){
+  turnoPanel.innerHTML = "";
+  const auto = document.createElement("button");
+  auto.className = state.turnoOverride==null ? "active" : "";
+  auto.innerHTML = `Automático <span class="sub">segue a hora — agora seria ${TURNO_LABELS[autoTurnoIndex()]}</span>`;
+  auto.onclick = ()=>{ state.turnoOverride = null; save(); refreshTurnoHeader(); toggleTurnoPanel(false); renderAll(); };
+  turnoPanel.appendChild(auto);
+
+  TURNO_LABELS.forEach((lbl,idx)=>{
+    const b = document.createElement("button");
+    b.className = state.turnoOverride===idx ? "active" : "";
+    b.textContent = lbl;
+    b.onclick = ()=>{ state.turnoOverride = idx; save(); refreshTurnoHeader(); toggleTurnoPanel(false); renderAll(); };
+    turnoPanel.appendChild(b);
+  });
+}
+
 function tickClock(){
   document.getElementById("clock").textContent = nowHM();
-  document.getElementById("turno").textContent = turnoLabel();
+  refreshTurnoHeader();
   // mantém a ordem e as cores da Tabela em sintonia com a hora atual, mesmo sem tocar em nada
   if(state.view==="table") renderTable();
 }
@@ -415,7 +592,7 @@ function renderZonePanel(){
       const newName = nameIn.value.trim();
       if(!newName || newName===name){ nameIn.value = name; return; }
       if(state.zones[newName]){
-        alert("Já existe uma zona com esse nome.");
+        appAlert("Já existe uma zona com esse nome.");
         nameIn.value = name;
         return;
       }
@@ -433,12 +610,12 @@ function renderZonePanel(){
     del.title = "Apagar zona";
     del.onclick = (e)=>{
       e.stopPropagation();
-      if(zoneNames().length<=1){ alert("Tens de ter pelo menos uma zona guardada."); return; }
-      if(confirm(`Apagar "${name}" e todas as suas máquinas?`)){
+      if(zoneNames().length<=1){ appAlert("Tens de ter pelo menos uma zona guardada."); return; }
+      appConfirm(`Apagar "${name}" e todas as suas máquinas?`, ()=>{
         delete state.zones[name];
         if(state.currentZone===name) state.currentZone = zoneNames()[0];
         save(); refreshZoneHeader(); renderZonePanel(); renderAll();
-      }
+      });
     };
 
     row.append(dot,nameIn,count,del);
@@ -457,7 +634,7 @@ function renderZonePanel(){
   function createZone(){
     const name = newIn.value.trim();
     if(!name) return;
-    if(state.zones[name]){ alert("Já existe uma zona com esse nome."); return; }
+    if(state.zones[name]){ appAlert("Já existe uma zona com esse nome."); return; }
     state.zones[name] = { machines: [] };
     state.currentZone = name;
     save(); refreshZoneHeader(); renderZonePanel(); renderAll();
@@ -471,25 +648,35 @@ function renderZonePanel(){
 
 refreshZoneHeader();
 
-// minutes from now until a HH:MM time (wraps to next day), or null if invalid
+// quanto tempo (em minutos) uma hora pode já ter passado e ainda contar como "atrasada hoje"
+// em vez de ser interpretada como a mesma hora só amanhã
+const OVERDUE_WINDOW_MIN = 240;
+// minutes from now until a HH:MM time. Se já passou há pouco (dentro da janela acima),
+// devolve um valor negativo (atrasado) em vez de saltar para a mesma hora amanhã — assim uma
+// muda atrasada continua a aparecer bem visível e vermelha, nunca escondida ou riscada sozinha.
 function minutesUntil(str){
   const t = parseHM(str);
   if(!t) return null;
   const now = new Date();
   const nowMin = now.getHours()*60 + now.getMinutes();
-  let diff = (t.h*60+t.m) - nowMin;
-  diff = ((diff % 1440) + 1440) % 1440;
-  return diff;
+  const raw = (t.h*60+t.m) - nowMin;
+  if(raw < 0 && raw >= -OVERDUE_WINDOW_MIN) return raw;
+  return ((raw % 1440) + 1440) % 1440;
 }
-// red (soon) -> green (far), capped at 4h
-function urgencyColor(mins){
+// red (soon / atrasado) -> green (far), capped at 4h
+function urgencyHue(mins){
   if(mins==null) return null;
   const t = Math.max(0, Math.min(1, mins/240));
-  return `hsl(${Math.round(t*120)},65%,50%)`;
+  return Math.round(t*120);
+}
+function urgencyColor(mins){
+  const h = urgencyHue(mins);
+  return h==null ? null : `hsl(${h},65%,50%)`;
 }
 
 function renderAll(){
   refreshZoneHeader();
+  refreshTurnoHeader();
   renderCards();
   renderTable();
   document.getElementById("cards").style.display = state.view==="cards" ? "" : "none";
@@ -533,6 +720,8 @@ function renderTable(){
   thead.innerHTML = "<span>Máq.</span><span>Carretos</span><span>Bobine</span><span>Fita</span>";
   wrap.appendChild(thead);
 
+  const idx = turnoIndex();
+
   const rows = withNum.map(m=>{
     const cMin = m.doneC ? null : minutesUntil(m.carretos);
     const bMin = m.doneB ? null : minutesUntil(m.bobine);
@@ -552,15 +741,17 @@ function renderTable(){
     const num = document.createElement("div");
     num.className = "tnum mono"; num.textContent = m.num;
 
-    const cCell = makeTableCell(m.carretos, m.doneC, cMin, m.estC);
+    const cOut = m.carretos && !isWithinTurnoWindow(m.carretos, idx);
+    const cCell = makeTableCell(m.carretos, m.doneC, cMin, m.estC, cOut);
     cCell.onclick = ()=>{ m.doneC = !m.doneC; save(); renderTable(); };
 
-    const bCell = makeTableCell(m.bobine, m.doneB, bMin, false);
+    const bOut = m.bobine && !isWithinTurnoWindow(m.bobine, idx);
+    const bCell = makeTableCell(m.bobine, m.doneB, bMin, false, bOut);
     bCell.onclick = ()=>{ m.doneB = !m.doneB; save(); renderTable(); };
 
     const fCell = document.createElement("div");
     fCell.className = "tcell fita mono" + (m.doneF ? " done" : "");
-    fCell.textContent = m.fita || "—";
+    fCell.textContent = (m.doneF && m.fita ? "✓ " : "") + (m.fita || "—");
     if(!m.doneF && m.fita==="?") fCell.style.color = "var(--amber)";
     fCell.onclick = ()=>{ m.doneF = !m.doneF; save(); renderTable(); };
 
@@ -571,21 +762,53 @@ function renderTable(){
   wrap.appendChild(tbl);
 }
 
-function makeTableCell(val, done, mins, isEst){
+function makeTableCell(val, done, mins, isEst, autoOut){
   const cell = document.createElement("div");
-  cell.className = "tcell mono" + (done ? " done" : "");
-  if(val && isEst){
-    const tilde = document.createElement("span");
-    tilde.className = "tilde"; tilde.textContent = "≈";
-    cell.appendChild(tilde);
-    cell.appendChild(document.createTextNode(val));
-    cell.title = "Estimativa (bobine trocada antes da muda dos carretos)";
-  } else {
-    cell.textContent = val || "—";
+  const struck = done || autoOut;
+  cell.className = "tcell mono" + (struck ? " done" : "");
+
+  if(!val){
+    cell.textContent = "—";
+    return cell;
   }
-  if(!done && mins!=null){
-    cell.style.color = urgencyColor(mins);
-    cell.style.fontWeight = "700";
+
+  if(struck){
+    const check = document.createElement("span");
+    check.className = "checkmark"; check.textContent = "✓ ";
+    cell.appendChild(check);
+    cell.appendChild(document.createTextNode(val));
+  } else {
+    const overdue = mins!=null && mins<0;
+    const chip = document.createElement("span");
+    chip.className = "chip" + (overdue ? " overdue" : "");
+    if(mins!=null){
+      const h = urgencyHue(mins);
+      chip.style.color = `hsl(${h},70%,58%)`;
+      chip.style.background = `hsla(${h},70%,50%,.16)`;
+      chip.style.borderColor = `hsla(${h},70%,50%,.45)`;
+    }
+    if(isEst){
+      const tilde = document.createElement("span");
+      tilde.className = "tilde"; tilde.textContent = "≈";
+      chip.appendChild(tilde);
+    }
+    if(overdue){
+      const warn = document.createElement("span");
+      warn.className = "warnmark"; warn.textContent = "⚠ ";
+      chip.appendChild(warn);
+    }
+    chip.appendChild(document.createTextNode(val));
+    cell.appendChild(chip);
+    if(overdue){
+      cell.title = "Já passou da hora prevista — ainda não está feito";
+    }
+  }
+
+  if(isEst){
+    cell.title = (cell.title ? cell.title + " · " : "") + "Estimativa (bobine trocada antes da muda dos carretos)";
+  }
+  if(autoOut && !done){
+    cell.title = (cell.title ? cell.title + " · " : "") + "Fora do teu turno — fica para o turno seguinte";
   }
   return cell;
 }
@@ -609,8 +832,8 @@ function buildCard(m,i){
   head.append(numIn, lbl, rm);
   card.appendChild(head);
 
-  card.appendChild(timeField("Carretos","carretos",m,i));
   card.appendChild(timeField("Bobine","bobine",m,i));
+  card.appendChild(timeField("Carretos","carretos",m,i));
   card.appendChild(fitaField(m,i));
 
   return card;
@@ -654,20 +877,33 @@ function timeField(label,key,m,i){
     step1.textContent = "1. Metros → valor a meter no visor";
     box.appendChild(step1);
 
-    const mr1 = document.createElement("div"); mr1.className="mrow";
-    const ml1 = document.createElement("label"); ml1.textContent = "Carretos mudados aos (metros)";
-    const min1 = document.createElement("input"); min1.className="mono"; min1.inputMode="numeric"; min1.placeholder="0";
-    mr1.append(ml1,min1);
-    box.appendChild(mr1);
-
     const tg = document.createElement("div"); tg.className="toggle";
-    const tgSpan = document.createElement("span"); tgSpan.textContent = "Bobine foi trocada antes da muda dos carretos";
+    const tgSpan = document.createElement("span"); tgSpan.textContent = "Bobine foi mudada antes dos carretos";
     const tgBtn = document.createElement("button"); tgBtn.className="sw";
     let trocada = false;
-    tgBtn.onclick = ()=>{ trocada = !trocada; tgBtn.classList.toggle("on", trocada); computeMetros(); };
+    tgBtn.onclick = ()=>{
+      trocada = !trocada; tgBtn.classList.toggle("on", trocada);
+      minus.style.display = trocada ? "" : "none";
+      min2.style.display = trocada ? "" : "none";
+      min2hint.style.display = trocada ? "" : "none";
+      computeMetros();
+    };
     tg.append(tgSpan,tgBtn);
     box.appendChild(tg);
     getBobineTrocada = ()=>trocada;
+
+    const formula = document.createElement("div"); formula.className="formularow mono";
+    const plus = document.createElement("span"); plus.className="fop"; plus.textContent = VIDA_CARRETOS + " +";
+    const min1 = document.createElement("input"); min1.className="mono"; min1.inputMode="numeric"; min1.placeholder="0";
+    const minus = document.createElement("span"); minus.className="fop"; minus.textContent = "−"; minus.style.display="none";
+    const min2 = document.createElement("input"); min2.className="mono"; min2.inputMode="numeric"; min2.placeholder=String(VIDA_BOBINE); min2.style.display="none";
+    formula.append(plus, min1, minus, min2);
+    box.appendChild(formula);
+
+    const min2hint = document.createElement("div"); min2hint.className="fieldhint";
+    min2hint.textContent = "Metros com que a bobine nova entrou (normalmente 10.000, mas pode ser 4.000, 7.000, 8.457... conforme a bobine)";
+    min2hint.style.display = "none";
+    box.appendChild(min2hint);
 
     const mres = document.createElement("div"); mres.className="mresult"; mres.style.display="none";
     box.appendChild(mres);
@@ -675,11 +911,13 @@ function timeField(label,key,m,i){
     function computeMetros(){
       const marcados = parseFloat((min1.value||"").replace(",","."));
       if(!Number.isFinite(marcados)){ mres.style.display="none"; return; }
-      const alvo = metrosCarretos(marcados, trocada);
+      const saidaRaw = parseFloat((min2.value||"").replace(",","."));
+      const saida = Number.isFinite(saidaRaw) ? saidaRaw : VIDA_BOBINE;
+      const alvo = metrosCarretos(marcados, trocada, saida);
       mres.style.display="block";
       if(alvo==null){
         mres.className = "mresult bad";
-        mres.innerHTML = `<div class="big">Não dá para estimar — esta bobine não parece ter chegado aos ${VIDA_BOBINE}m. Aponta a que metros ela saiu e repete os cálculos manualmente com a tua mentora.</div>`;
+        mres.innerHTML = `<div class="big">Não dá para estimar — os carretos já teriam acabado antes de a bobine chegar aos ${saida}m. Confirma o valor a que a bobine antiga saiu.</div>`;
       } else {
         mres.className = "mresult";
         mres.innerHTML = `<div class="big">${alvo}</div><div class="cap">meter este valor no visor da máquina${trocada ? " · resultado é uma estimativa" : ""}</div>`;
@@ -687,6 +925,8 @@ function timeField(label,key,m,i){
     }
     min1.addEventListener("input", computeMetros);
     attachAutoDismiss(min1);
+    min2.addEventListener("input", computeMetros);
+    attachAutoDismiss(min2);
 
     const step2 = document.createElement("div"); step2.className="steplabel";
     step2.textContent = "2. Duração do visor → hora final";
@@ -770,15 +1010,18 @@ document.getElementById("addBtn").onclick = ()=>{
   save(); renderAll();
 };
 document.getElementById("clearBtn").onclick = ()=>{
-  if(confirm("Limpar todos os campos desta zona? Os números das máquinas mantêm-se.")){
+  appConfirm("Limpar todos os campos desta zona? Os números das máquinas mantêm-se.", ()=>{
     curMachines().forEach(m=>{ m.carretos=""; m.bobine=""; m.fita=""; m.doneC=false; m.doneB=false; m.doneF=false; m.estC=false; });
     save(); renderAll();
-  }
+  });
 };
 
 document.addEventListener("click", (e)=>{
   if(zonePanelOpen && !zonePanel.contains(e.target) && e.target!==zoneBtn && !zoneBtn.contains(e.target)){
     toggleZonePanel(false);
+  }
+  if(turnoPanelOpen && !turnoPanel.contains(e.target) && e.target!==turnoBtn && !turnoBtn.contains(e.target)){
+    toggleTurnoPanel(false);
   }
 });
 
