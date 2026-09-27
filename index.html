@@ -3,13 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Zona — Mudas</title>
+<title>Braiders - Mudas</title>
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#1C1B19">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Zona">
+<meta name="apple-mobile-web-app-title" content="Braiders">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="icon" href="icon-192.png">
 <style>
@@ -942,9 +942,12 @@ function timeField(label,key,m,i){
       }
     }
     min1.addEventListener("input", computeMetros);
-    attachAutoDismiss(min1);
     min2.addEventListener("input", computeMetros);
-    attachAutoDismiss(min2);
+    // sem fecho automático aqui: os metros vêm de uma etiqueta escrita à mão, por vezes difícil
+    // de decifrar, por isso o teclado só fecha quando tocares fora ou carregares Enter
+    [min1, min2].forEach(inp=>{
+      inp.addEventListener("keydown", (e)=>{ if(e.key==="Enter") inp.blur(); });
+    });
 
     const step2 = document.createElement("div"); step2.className="steplabel";
     step2.textContent = "2. Duração do visor → hora final";
