@@ -79,6 +79,11 @@
     flex-shrink:0; background:var(--amber); color:#211a0c; border:none; font-weight:700;
     border-radius:5px; padding:8px 14px; font-size:14px;
   }
+  .zreset{padding:4px 12px 12px;}
+  .zreset button{
+    width:100%; background:none; border:1px dashed #4a2f27; color:var(--danger);
+    border-radius:5px; padding:9px; font-size:12.5px;
+  }
   main{padding:10px 12px 100px; max-width:520px; margin:0 auto;}
 
   .card{
@@ -417,8 +422,8 @@ function load(){
   }catch(e){}
 
   return {
-    currentZone: "Zona 4",
-    zones: { "Zona 4": { machines: ["52","105","106","107","108","109","110"].map(blankMachine) } },
+    currentZone: "Teste",
+    zones: {},
     view: "cards",
     margin: "",
     turnoOverride: null
@@ -644,6 +649,17 @@ function renderZonePanel(){
   newIn.addEventListener("keydown", (e)=>{ if(e.key==="Enter") createZone(); });
   newRow.append(newIn,newBtn);
   zonePanel.appendChild(newRow);
+
+  const resetRow = document.createElement("div"); resetRow.className="zreset";
+  const resetBtn = document.createElement("button"); resetBtn.textContent = "Repor tudo (apagar todas as zonas e dados)";
+  resetBtn.onclick = ()=>{
+    appConfirm("Apagar TODAS as zonas, máquinas e dados guardados nesta app, e começar do zero? Não dá para desfazer.", ()=>{
+      try{ localStorage.removeItem(KEY); localStorage.removeItem(OLD_KEY); }catch(e){}
+      location.reload();
+    });
+  };
+  resetRow.appendChild(resetBtn);
+  zonePanel.appendChild(resetRow);
 }
 
 refreshZoneHeader();
@@ -872,6 +888,7 @@ function timeField(label,key,m,i){
   const box = document.createElement("div"); box.className="calcbox";
 
   let getBobineTrocada = ()=>false;
+  let firstFocusInput = null; // o que recebe o foco ao abrir "calc" — passo 1 (metros) nos carretos, ou passo 2 (hora) na bobine
   if(isCarretos){
     const step1 = document.createElement("div"); step1.className="steplabel";
     step1.textContent = "1. Metros → valor a meter no visor";
@@ -899,6 +916,7 @@ function timeField(label,key,m,i){
     const min2 = document.createElement("input"); min2.className="mono"; min2.inputMode="numeric"; min2.placeholder=String(VIDA_BOBINE); min2.style.display="none";
     formula.append(plus, min1, minus, min2);
     box.appendChild(formula);
+    firstFocusInput = min1;
 
     const min2hint = document.createElement("div"); min2hint.className="fieldhint";
     min2hint.textContent = "Metros com que a bobine nova entrou (normalmente 10.000, mas pode ser 4.000, 7.000, 8.457... conforme a bobine)";
@@ -975,7 +993,10 @@ function timeField(label,key,m,i){
   box.append(r1,r2,r3,act);
   wrap.appendChild(box);
 
-  cbtn.onclick = ()=>{ box.classList.toggle("open"); if(box.classList.contains("open")) in2.focus(); };
+  cbtn.onclick = ()=>{
+    box.classList.toggle("open");
+    if(box.classList.contains("open")) (firstFocusInput || in2).focus();
+  };
 
   return wrap;
 }
