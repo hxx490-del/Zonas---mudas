@@ -336,6 +336,7 @@ window.addEventListener("error", function(ev){
 });
 const KEY = "coficab_zone_v2";
 const OLD_KEY = "coficab_zone_v1";
+const OVERDUE_WINDOW_MIN = 240;
 let cloudDoc = null, cloudTimer = null, cloudBusy = false, cloudDirty = false;
 let state = load();
 
@@ -751,7 +752,6 @@ refreshZoneHeader();
 
 // quanto tempo (em minutos) uma hora pode já ter passado e ainda contar como "atrasada hoje"
 // em vez de ser interpretada como a mesma hora só amanhã
-const OVERDUE_WINDOW_MIN = 240;
 // minutes from now until a HH:MM time. Se já passou há pouco (dentro da janela acima),
 // devolve um valor negativo (atrasado) em vez de saltar para a mesma hora amanhã — assim uma
 // muda atrasada continua a aparecer bem visível e vermelha, nunca escondida ou riscada sozinha.
