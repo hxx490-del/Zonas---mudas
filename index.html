@@ -298,6 +298,7 @@
 <header>
   <div class="row">
     <button id="zoneBtn" class="mono zonebtn"><span id="zoneName"></span> <span class="caret">▾</span></button>
+    <span class="mono" id="syncDot" style="font-size:12px;color:var(--ink-dim);"></span>
     <span class="clock mono" id="clock">--:--</span>
   </div>
   <div id="zonePanel" class="zonepanel" style="display:none;"></div>
@@ -324,8 +325,18 @@
 </footer>
 
 <script>
+window.addEventListener("error", function(ev){
+  try{
+    var b = document.getElementById("cards") || document.body;
+    var d = document.createElement("div");
+    d.style.cssText = "margin:12px;padding:12px;border:1px solid #c9614a;border-radius:8px;color:#c9614a;font-size:13px;word-break:break-word";
+    d.textContent = "Erro na app: " + (ev.message || "?") + " (linha " + (ev.lineno||"?") + ")";
+    b.prepend(d);
+  }catch(e){}
+});
 const KEY = "coficab_zone_v2";
 const OLD_KEY = "coficab_zone_v1";
+let cloudDoc = null, cloudTimer = null, cloudBusy = false, cloudDirty = false;
 let state = load();
 
 // pop-up próprio (alguns sítios onde a app corre bloqueiam os alert()/confirm() nativos do browser
@@ -393,15 +404,26 @@ function seedTestZone(){
 }
 seedTestZone();
 
+// repara dados guardados estragados/incompletos (era isto que deixava o ecrã em branco)
+function normalizeState(s){
+  if(!s || typeof s!=="object" || !s.zones || typeof s.zones!=="object") return null;
+  Object.keys(s.zones).forEach(k=>{
+    const z = s.zones[k];
+    if(!z || !Array.isArray(z.machines)) s.zones[k] = { machines: [] };
+  });
+  const names = Object.keys(s.zones);
+  if(!names.length) return null;
+  if(!s.currentZone || !s.zones[s.currentZone]) s.currentZone = names[0];
+  if(s.view!=="cards" && s.view!=="table") s.view = "cards";
+  if(s.turnoOverride===undefined || ![0,1,2,null].includes(s.turnoOverride)) s.turnoOverride = null;
+  return s;
+}
 function load(){
   try{
     const raw = localStorage.getItem(KEY);
     if(raw){
-      const s = JSON.parse(raw);
-      if(s.zones && s.currentZone){
-        if(s.turnoOverride===undefined) s.turnoOverride = null;
-        return s;
-      }
+      const s = normalizeState(JSON.parse(raw));
+      if(s) return s;
     }
   }catch(e){}
 
@@ -430,7 +452,70 @@ function load(){
   };
 }
 function save(){
+  state._savedAt = Date.now();
   try{ localStorage.setItem(KEY, JSON.stringify(state)); }catch(e){ console.error("save failed",e); }
+  scheduleCloudSave();
+}
+
+// ---- cópia de segurança na conta (sobrevive a limpezas do navegador / do telemóvel) ----
+function setSyncDot(txt, title){
+  const d = document.getElementById("syncDot");
+  if(d){ d.textContent = txt; d.title = title || ""; }
+}
+function scheduleCloudSave(){
+  if(!cloudDoc) return;
+  cloudDirty = true;
+  clearTimeout(cloudTimer);
+  cloudTimer = setTimeout(flushCloud, 1200);
+}
+async function flushCloud(){
+  if(!cloudDoc || cloudBusy || !cloudDirty) return;
+  cloudBusy = true; cloudDirty = false;
+  try{
+    await cloudDoc.set({ json: JSON.stringify(state), savedAt: state._savedAt || Date.now() });
+    setSyncDot("☁ ✓", "Guardado na conta");
+  }catch(e){
+    console.error("cloud save failed", e);
+    setSyncDot("☁ ✕", "Não foi possível guardar na conta");
+  }
+  cloudBusy = false;
+  if(cloudDirty) scheduleCloudSave();
+}
+async function initCloud(){
+  try{
+    const user = await claude.use("user");
+    const db = await claude.use("db");
+    if(!user || !db){ setSyncDot("", ""); return; }
+    const uid = await user.id();
+    if(!uid){ return; }
+    cloudDoc = db.doc("data/users/" + uid + "/state");
+    const snap = await cloudDoc.get();
+    if(snap.exists){
+      const d = snap.data() || {};
+      const localAt = state._savedAt || 0;
+      // "vazio" = sem zonas, ou só a zona de exemplo "Teste" que a app cria sozinha quando não encontra dados
+      const localEmpty = Object.keys(state.zones || {}).every(k=>k==="Teste");
+      // usa a versão da conta se o telemóvel estiver vazio (dados perdidos) ou se for mais recente
+      if(d.json && (localEmpty || (d.savedAt || 0) > localAt)){
+        try{
+          const s = normalizeState(JSON.parse(d.json));
+          if(s){
+            state = s;
+            try{ localStorage.setItem(KEY, JSON.stringify(state)); }catch(e){}
+            renderAll();
+            setSyncDot("☁ ✓", "Dados repostos da conta");
+            return;
+          }
+        }catch(e){}
+      }
+    }
+    // primeira vez / nada na conta: guarda o que existe agora
+    cloudDirty = true;
+    await flushCloud();
+  }catch(e){
+    console.error("cloud init failed", e);
+    setSyncDot("", "");
+  }
 }
 function curMachines(){
   if(!state.zones[state.currentZone]) state.zones[state.currentZone] = { machines: [] };
@@ -1050,6 +1135,7 @@ document.addEventListener("click", (e)=>{
 });
 
 renderAll();
+initCloud();
 
 if("serviceWorker" in navigator){
   window.addEventListener("load", ()=>{
@@ -1059,3 +1145,5 @@ if("serviceWorker" in navigator){
 </script>
 </body>
 </html>
+
+</body></html>

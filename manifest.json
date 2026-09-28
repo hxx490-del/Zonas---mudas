@@ -1,6 +1,6 @@
 {
-  "name": "Braiders - Mudas",
-  "short_name": "Braiders",
+  "name": "Zona — Mudas",
+  "short_name": "Zona",
   "description": "Cálculo e registo de mudas de carretos, bobine e fita por máquina.",
   "start_url": "./index.html",
   "scope": "./",
