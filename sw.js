@@ -1,4 +1,4 @@
-const CACHE = "zona-mudas-v3";
+const CACHE = "zona-mudas-v4";
 const ASSETS = ["./index.html", "./manifest.json", "./icon-192.png", "./icon-512.png"];
 
 self.addEventListener("install", (e) => {
@@ -26,7 +26,7 @@ self.addEventListener("fetch", (e) => {
 
   if (isPage) {
     e.respondWith(
-      fetch(e.request)
+      fetch(e.request, { cache: "reload" })
         .then((res) => {
           if (res && res.ok) {
             const copy = res.clone();
